@@ -1,0 +1,231 @@
+{
+  "query_result": {
+    "id": 761508670,
+    "query_hash": "baf3114c7b87d4b60a8e2f0a0f7b14fd",
+    "query": "with polling_centers as (\nselect * from query_485064\n)\n\n, latest_times as (\nselect\n    \"What_is_your_polling_location?\"\n    , max(timestamp) as latest_time\nfrom query_485062\ngroup by 1\n)\n, summary as (\nselect \n    q.\"What_is_your_polling_location?\" as polling_station\t\n    , q.\"Time_in_line_before_Pollbook_Judge\" as time_before_pollbook\n    , q.\"Time_with_Pollbook_Judge\" as time_with_pollbook\n    , q.\"Time_in_line_before_Tech_Judge\" as time_before_tech_judge\n    , q.\"Time_with_Tech_Judge\" as time_with_tech_judge\n    , q.\"Time_in_voting_booth\" as time_in_booth\n    , q.\"Time_to_ballot_box\" as time_to_ballot_box\n    , (strftime('%s', 'now') - strftime('%s', latest_time) ) / 60 - (60 * 7) as minutes_since_update\n    , latest_time \n    \nfrom query_485062 q\njoin latest_times lt\n    on q.\"What_is_your_polling_location?\" = lt.\"What_is_your_polling_location?\"\n    and q.timestamp = lt.latest_time\n)\n\n, second_conversion as (\nselect\n    *\n    , ifnull(substr(time(time_before_pollbook), 1, 2), substr(time_before_pollbook, 1, length(time_before_pollbook) - 3))  * 60 \n        + ifnull(substr(time(time_before_pollbook), 4,2), substr(time_before_pollbook, length(time_before_pollbook) - 1 ,2 )) as sec_before_pollbook\n    \n    , ifnull(substr(time(time_with_pollbook), 1, 2), substr(time_with_pollbook, 1, length(time_with_pollbook) - 3))  * 60 \n        + ifnull(substr(time(time_with_pollbook), 4,2), substr(time_with_pollbook, length(time_with_pollbook) - 1 ,2 )) as sec_with_pollbook\n    \n    , ifnull(substr(time(time_before_tech_judge), 1, 2), substr(time_before_tech_judge, 1, length(time_before_tech_judge) - 3))  * 60 \n        + ifnull(substr(time(time_before_tech_judge), 4,2), substr(time_before_tech_judge, length(time_before_tech_judge) - 1 ,2 )) as sec_before_tech\n    \n    , ifnull(substr(time(time_with_tech_judge), 1, 2), substr(time_with_tech_judge, 1, length(time_with_tech_judge) - 3))  * 60 \n        + ifnull(substr(time(time_with_tech_judge), 4,2), substr(time_with_tech_judge, length(time_with_tech_judge) - 1 ,2 )) as sec_with_tech\n    \n    , ifnull(substr(time(time_in_booth), 1, 2), substr(time_in_booth, 1, length(time_in_booth) - 3))  * 60 \n        + ifnull(substr(time(time_in_booth), 4,2), substr(time_in_booth, length(time_in_booth) - 1 ,2 )) as sec_booth\n        \n    , ifnull(substr(time(time_to_ballot_box), 1, 2), substr(time_to_ballot_box, 1, length(time_to_ballot_box) - 3))  * 60 \n        + ifnull(substr(time(time_to_ballot_box), 4,2), substr(time_to_ballot_box, length(time_to_ballot_box) - 1 ,2 )) as sec_to_ballot\n    \n    /*\n    , substr(time(time_with_pollbook), 1, 2) * 60 + substr(time(time_with_pollbook), 4,2) as sec_with_pollbook\n    , substr(time(time_before_tech_judge), 1, 2) * 60 + substr(time(time_before_tech_judge), 4,2) as sec_before_tech\n    , substr(time(time_with_tech_judge), 1, 2) * 60 + substr(time(time_with_tech_judge), 4,2) as sec_with_tech\n    , ifnull(substr(time(time_in_booth), 1, 2), substr(time_in_booth, 1, length(time_in_booth) - 3)) * 60 \n        + ifnull(substr(time(time_in_booth), 4,2), substr(time_in_booth, length(time_in_booth) - 1 ,2 )) as sec_booth\n    , substr(time(time_to_ballot_box), 1, 2) * 60 + substr(time(time_to_ballot_box), 4,2) as sec_to_ballot\n    , ifnull(substr(time(time_in_booth), 4,2), substr(time_in_booth, length(time_in_booth) - 1,2 ))\n    */\n    \nfrom summary\n)\n\n, interim as (\nselect\n    polling_station\n    , sec_before_pollbook\n    , case when (sec_before_pollbook % 60) >= 10 then (sec_before_pollbook / 60) || ':' || (sec_before_pollbook % 60) \n        else (sec_before_pollbook / 60) || ':0' || (sec_before_pollbook % 60) end  \n        as before_pollbook\n    , case when (sec_with_pollbook % 60) >= 10 then (sec_with_pollbook / 60) || ':' || (sec_with_pollbook % 60) \n        else (sec_with_pollbook / 60) || ':0' || (sec_with_pollbook % 60) end  \n        as with_pollbook\n    , case when (sec_before_tech % 60) >= 10 then (sec_before_tech / 60) || ':' || (sec_before_tech % 60) \n        else (sec_before_tech / 60) || ':0' || (sec_before_tech % 60) end  \n        as before_tech\n    , case when (sec_with_tech % 60) >= 10 then (sec_with_tech / 60) || ':' || (sec_with_tech % 60) \n        else (sec_with_tech / 60) || ':0' || (sec_with_tech % 60) end  \n        as with_tech\n    , case when (sec_booth % 60) >= 10 then (sec_booth / 60) || ':' || (sec_booth % 60) \n        else (sec_booth / 60) || ':0' || (sec_booth % 60) end  \n        as at_booth\n    , case when (sec_to_ballot % 60) >= 10 then (sec_to_ballot / 60) || ':' || (sec_to_ballot % 60) \n        else (sec_to_ballot / 60) || ':0' || (sec_to_ballot % 60) end  \n        as to_ballot\n    \n    , sec_before_pollbook + sec_with_pollbook + sec_before_tech + sec_with_tech + sec_booth + sec_to_ballot as sec_total\n    \n    , latest_time\n    , minutes_since_update\nfrom second_conversion\n)\n, wait_time_data as (\nselect\n    polling_station\n    , case when (sec_before_pollbook % 60) >= 10 then (sec_before_pollbook / 60) || ':' || (sec_before_pollbook % 60) \n        else (sec_before_pollbook / 60) || ':0' || (sec_before_pollbook % 60) end  \n        as total_time\n    , sec_before_pollbook / 60 as minutes_wait\n    , sec_before_pollbook\n    \n    /*\n    , before_pollbook\n    , with_pollbook\n    , before_tech\n    , with_tech\n    , at_booth\n    , to_ballot\n    \n\n    , latest_time as latest_update\n    , minutes_since_update\n    */\nfrom interim\norder by 1 \n)\n\n, combined as (\nselect\n    wtd.polling_station\n    , pc.longitude\n    , pc.latitude\n    , pc.address\n    , pc.maps_link\n    , wtd.minutes_wait\n    , wtd.sec_before_pollbook as sec_total\n    \n    --, latest_update as update_time\n    --, minutes_since_update\nfrom wait_time_data wtd\n\njoin polling_centers pc\n    on pc.center_name = wtd.polling_station\n)\n\nselect\n    polling_station as \"Poll\"\n    , address as \"Address\"\n    , minutes_wait as \"Wait\"\n    , maps_link\n    --, sec_total\n    , case \n        when sec_total <= 300 then 'fast' \n        when sec_total <= 900 then 'medium'\n        else 'slow'\n        end  as \"Wait Classification\"\n    /*\n    , case \n        when polling_station = \"Station 1\" then  40.0149856 \n        when polling_station = \"Station 2\" then  40.0149856 \n        when polling_station = \"Station 3\" then  40.0149856 \n        \n        end as lat\n    , case \n        when polling_station = \"Station 1\" then  -105.2705456 \n        when polling_station = \"Station 2\" then  -105.2805456 \n        when polling_station = \"Station 3\" then  -105.2905456 \n    \n    \n    end as lon\n    */\n    , latitude as lat\n    , longitude as lon\nfrom combined",
+    "data": {
+      "columns": [
+        {
+          "name": "Poll",
+          "friendly_name": "Poll",
+          "type": "string"
+        },
+        {
+          "name": "Address",
+          "friendly_name": "Address",
+          "type": "string"
+        },
+        {
+          "name": "Wait",
+          "friendly_name": "Wait",
+          "type": "integer"
+        },
+        {
+          "name": "maps_link",
+          "friendly_name": "maps_link",
+          "type": "string"
+        },
+        {
+          "name": "Wait Classification",
+          "friendly_name": "Wait Classification",
+          "type": "string"
+        },
+        {
+          "name": "lat",
+          "friendly_name": "lat",
+          "type": "float"
+        },
+        {
+          "name": "lon",
+          "friendly_name": "lon",
+          "type": "float"
+        }
+      ],
+      "rows": [
+        {
+          "Poll": "Boulder County Clerk & Recorder",
+          "Address": "1750 33rd St, Boulder, CO 80301",
+          "Wait": 5,
+          "maps_link": "https://www.google.com/maps/place/1750+33rd+St,+Boulder,+CO+80301",
+          "Wait Classification": "medium",
+          "lat": 40.0175473,
+          "lon": -105.2497361
+        },
+        {
+          "Poll": "Boulder County Fairgrounds",
+          "Address": "9595 Nelson Rd, Longmont, CO 80501",
+          "Wait": 20,
+          "maps_link": "https://www.google.com/maps/place/9595+Nelson+Rd,+Longmont,+CO+80501",
+          "Wait Classification": "slow",
+          "lat": 40.1530972,
+          "lon": -105.1258042
+        },
+        {
+          "Poll": "Boulder Library - Main",
+          "Address": "1001 Arapahoe Ave, Boulder, CO 80302",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/1001+Arapahoe+Ave,+Boulder,+CO+80302",
+          "Wait Classification": "fast",
+          "lat": 40.013952,
+          "lon": -105.281769
+        },
+        {
+          "Poll": "Boulder Meadows",
+          "Address": "4500 19th St, Boulder, CO 80304",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/4500+19th+St,+Boulder,+CO+80304",
+          "Wait Classification": "fast",
+          "lat": 40.0554446,
+          "lon": -105.2731535
+        },
+        {
+          "Poll": "CU - University Memorial Center",
+          "Address": "1669 Euclid Ave, Boulder, CO 80309",
+          "Wait": 1,
+          "maps_link": "https://www.google.com/maps/place/1669+Euclid+Ave,+Boulder,+CO+80309",
+          "Wait Classification": "fast",
+          "lat": 40.0065706,
+          "lon": -105.2717488
+        },
+        {
+          "Poll": "CU - Williams Village",
+          "Address": "500 30th Street, Boulder 80303",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/500+30th+Street,+Boulder+80303",
+          "Wait Classification": "fast",
+          "lat": 39.9980715,
+          "lon": -105.252462
+        },
+        {
+          "Poll": "East Boulder Community Center",
+          "Address": "5660 Sioux Dr, Boulder, CO 80303",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/5660+Sioux+Dr,+Boulder,+CO+80303",
+          "Wait Classification": "fast",
+          "lat": 39.9921076,
+          "lon": -105.220073
+        },
+        {
+          "Poll": "Front Range Community College",
+          "Address": "2121 Miller Drive, Longmont 80501",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/2121+Miller+Drive,+Longmont+80501",
+          "Wait Classification": "fast",
+          "lat": 40.1384402,
+          "lon": -105.1278142
+        },
+        {
+          "Poll": "Hampton Inn & Suites - Gunbarrel",
+          "Address": "6333 Lookout Rd, Boulder, CO 80301",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/6333+Lookout+Rd,+Boulder,+CO+80301",
+          "Wait Classification": "fast",
+          "lat": 40.0724413,
+          "lon": -105.205723
+        },
+        {
+          "Poll": "Lafayette Library",
+          "Address": "775 Baseline Rd, Lafayette, CO 80026",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/775+Baseline+Rd,+Lafayette,+CO+80026",
+          "Wait Classification": "fast",
+          "lat": 40.0008006,
+          "lon": -105.0995124
+        },
+        {
+          "Poll": "Lafayette Southeast Community Hub",
+          "Address": "1755 S Public Road Lafayette, CO 80026",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/1755+S+Public+Road+Lafayette,+CO+80026",
+          "Wait Classification": "fast",
+          "lat": 39.9821255,
+          "lon": -105.091109
+        },
+        {
+          "Poll": "Longmont Museum",
+          "Address": "400 Quail Rd, Longmont, CO 80501",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/400+Quail+Rd,+Longmont,+CO+80501",
+          "Wait Classification": "fast",
+          "lat": 40.1457137,
+          "lon": -105.099904
+        },
+        {
+          "Poll": "Longmont St. Vrain Hub",
+          "Address": "515 Coffman St, Longmont, CO 80501",
+          "Wait": 1,
+          "maps_link": "https://www.google.com/maps/place/515+Coffman+St,+Longmont,+CO+80501",
+          "Wait Classification": "fast",
+          "lat": 40.1684772,
+          "lon": -105.1042432
+        },
+        {
+          "Poll": "Longmont YMCA",
+          "Address": "950 Lashley St, Longmont, CO 80504",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/950+Lashley+St,+Longmont,+CO+80504",
+          "Wait Classification": "fast",
+          "lat": 40.1748675,
+          "lon": -105.0873436
+        },
+        {
+          "Poll": "Louisville Recreation Center",
+          "Address": "900 Via Appia Way, Louisville, CO 80027",
+          "Wait": 1,
+          "maps_link": "https://www.google.com/maps/place/900+Via+Appia+Way,+Louisville,+CO+80027",
+          "Wait Classification": "fast",
+          "lat": 39.9750467,
+          "lon": -105.1574198
+        },
+        {
+          "Poll": "Lyons Library",
+          "Address": "451 4th Ave, Lyons, CO 80540",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/451+4th+Ave,+Lyons,+CO+80540",
+          "Wait Classification": "fast",
+          "lat": 40.2236772,
+          "lon": -105.2701434
+        },
+        {
+          "Poll": "Moose Lodge",
+          "Address": "2210 Pratt St, Longmont, CO 80501",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/2210+Pratt+St,+Longmont,+CO+80501",
+          "Wait Classification": "fast",
+          "lat": 40.1971287,
+          "lon": -105.106253
+        },
+        {
+          "Poll": "Mt. Hope Lutheran Church",
+          "Address": "1345 S Broadway, Boulder, CO 80305",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/1345+S+Broadway,+Boulder,+CO+80305",
+          "Wait Classification": "fast",
+          "lat": 39.9741189,
+          "lon": -105.2408262
+        },
+        {
+          "Poll": "Nederland Community Center",
+          "Address": "750 North Highway 72, Nederland 80466",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/750+North+Highway+72,+Nederland+80466",
+          "Wait Classification": "fast",
+          "lat": 39.9620643,
+          "lon": -105.5108059
+        },
+        {
+          "Poll": "Superior Town Hall",
+          "Address": "124 E Coal Creek Dr, Superior, CO 80027",
+          "Wait": 0,
+          "maps_link": "https://www.google.com/maps/place/124+E+Coal+Creek+Dr,+Superior,+CO+80027",
+          "Wait Classification": "fast",
+          "lat": 39.9533523,
+          "lon": -105.1660101
+        }
+      ]
+    },
+    "data_source_id": 38749,
+    "runtime": 1.85623,
+    "retrieved_at": "2020-10-11T15:20:36.551Z"
+  }
+}
